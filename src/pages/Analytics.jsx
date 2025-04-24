@@ -34,17 +34,43 @@ console.log('API URL:', fetchDashboardCasosPais);
 // URL to Colombia GeoJSON - Changed to use an absolute URL
 const colombiaGeoUrl = '/colombia.json';
 
-// Colors for heat maps
+// Colors for heat maps - Nueva paleta de colores más contrastante
 const COLOR_RANGE = [
-  '#FFEDEA',
-  '#FFCEC5',
-  '#FFAD9F',
-  '#FF8A75',
-  '#FF5533',
-  '#E2492D',
-  '#BE3D26',
-  '#9A311F',
-  '#782618'
+  '#eff3ff',
+  '#c6dbef',
+  '#9ecae1',
+  '#6baed6',
+  '#4292c6',
+  '#2171b5',
+  '#08519c',
+  '#08306b',
+  '#081d58'
+];
+
+// Paleta alternativa con más variedad de colores
+const ALTERNATE_COLOR_RANGE = [
+  '#f7fbff',
+  '#deebf7',
+  '#c6dbef',
+  '#9ecae1',
+  '#6baed6',
+  '#4292c6',
+  '#2171b5',
+  '#08519c',
+  '#08306b'
+];
+
+// Otra opción de paleta más variada (verde a rojo)
+const VARIED_COLOR_RANGE = [
+  '#edf8e9',
+  '#c7e9c0',
+  '#a1d99b',
+  '#74c476',
+  '#41ab5d',
+  '#238b45',
+  '#006d2c',
+  '#993404',
+  '#7f0000'
 ];
 
 const DEFAULT_COLOR = '#EEE';
@@ -114,6 +140,25 @@ const TabsContent = ({ children, value, tabValue }) => {
   return <div className="tabs-content">{children}</div>;
 };
 
+// Componente personalizado para tooltip
+const MapTooltip = ({ show, content, position }) => {
+  if (!show) return null;
+  
+  return (
+    <div 
+      className="absolute z-10 bg-white rounded shadow-lg p-3 border border-gray-200 text-sm"
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y - 40}px`,
+        minWidth: '120px',
+        pointerEvents: 'none'
+      }}
+    >
+      {content}
+    </div>
+  );
+};
+
 const LocationDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('departamentos');
@@ -121,6 +166,12 @@ const LocationDashboard = () => {
   const [selectedSemester, setSelectedSemester] = useState('2020-S1');
   const [selectedDepartamento, setSelectedDepartamento] = useState(null);
   const [semesters, setSemesters] = useState([]);
+  // Estado para el tooltip personalizado
+  const [tooltip, setTooltip] = useState({
+    show: false,
+    content: '',
+    position: { x: 0, y: 0 }
+  });
   
   const [data, setData] = useState({
     departamentos: {},
@@ -182,11 +233,11 @@ const LocationDashboard = () => {
     const maxValue = Math.max(...values);
     
     // If all values are equal or close to 0, return a simple function
-    if (maxValue <= 1) return () => COLOR_RANGE[0];
+    if (maxValue <= 1) return () => VARIED_COLOR_RANGE[0];
 
     return scaleQuantile()
       .domain(values)
-      .range(COLOR_RANGE);
+      .range(VARIED_COLOR_RANGE);
   };
 
   // Convert data for bar charts or pie charts
@@ -242,6 +293,14 @@ const LocationDashboard = () => {
       );
     }
     return null;
+  };
+
+  // Ocultar tooltip cuando el ratón sale del mapa
+  const handleMouseLeave = () => {
+    setTooltip({
+      ...tooltip,
+      show: false
+    });
   };
 
   if (loading) {
@@ -338,13 +397,20 @@ const LocationDashboard = () => {
                 <CardHeader>
                   <CardTitle>Cases by Department {selectedSemester && `- ${selectedSemester}`}</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="relative">
+                  {/* Tooltip personalizado */}
+                  <MapTooltip 
+                    show={tooltip.show} 
+                    content={tooltip.content} 
+                    position={tooltip.position} 
+                  />
+                  
                   <div className="h-96">
                     <ComposableMap
                       projectionConfig={{ scale: 4000 }}
                       projection="geoMercator"
-                      data-tip=""
                       style={{ width: "100%", height: "100%" }}
+                      onMouseLeave={handleMouseLeave}
                     >
                       <ZoomableGroup center={[-74, 4]} zoom={1.5}>
                         <Geographies geography={colombiaGeoUrl}>
@@ -365,13 +431,39 @@ const LocationDashboard = () => {
                                   strokeWidth={0.5}
                                   style={{
                                     default: { outline: "none" },
-                                    hover: { outline: "none", fill: "#F53" },
+                                    hover: { outline: "none", fill: "#F53", cursor: "pointer" },
                                     pressed: { outline: "none" },
                                   }}
                                   onClick={() => {
                                     setSelectedDepartamento(deptName);
                                   }}
-                                  data-tip={`${deptName}: ${formatNumber(current)} cases`}
+                                  onMouseEnter={(evt) => {
+                                    const tooltipContent = `
+                                      <div>
+                                        <div class="font-semibold">${deptName}</div>
+                                        <div>Cases: ${formatNumber(current)}</div>
+                                      </div>
+                                    `;
+                                    setTooltip({
+                                      show: true,
+                                      content: <div dangerouslySetInnerHTML={{ __html: tooltipContent }} />,
+                                      position: { x: evt.clientX, y: evt.clientY }
+                                    });
+                                  }}
+                                  onMouseMove={(evt) => {
+                                    if (tooltip.show) {
+                                      setTooltip({
+                                        ...tooltip,
+                                        position: { x: evt.clientX, y: evt.clientY }
+                                      });
+                                    }
+                                  }}
+                                  onMouseLeave={() => {
+                                    setTooltip({
+                                      ...tooltip,
+                                      show: false
+                                    });
+                                  }}
                                 />
                               );
                             })
@@ -381,12 +473,12 @@ const LocationDashboard = () => {
                     </ComposableMap>
                   </div>
                   
-                  {/* Color scale */}
+                  {/* Leyenda de color */}
                   <div className="flex justify-center items-center mt-4">
                     <div className="flex items-center">
                       <span className="text-xs text-gray-600 mr-2">Less</span>
                       <div className="flex">
-                        {COLOR_RANGE.map((color, i) => (
+                        {VARIED_COLOR_RANGE.map((color, i) => (
                           <div
                             key={i}
                             style={{
@@ -434,7 +526,7 @@ const LocationDashboard = () => {
                       <Tooltip content={<CustomTooltip />} />
                       <Bar 
                         dataKey="value" 
-                        fill="#8884d8"
+                        fill="#2171b5"
                         name="Cases" 
                         radius={[0, 4, 4, 0]}
                       />
@@ -464,7 +556,7 @@ const LocationDashboard = () => {
                     <Tooltip content={<CustomTooltip />} />
                     <Bar 
                       dataKey="value" 
-                      fill="#82ca9d"
+                      fill="#41ab5d"
                       name="Cases" 
                       radius={[0, 4, 4, 0]}
                     />
@@ -495,7 +587,7 @@ const LocationDashboard = () => {
                           label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                         >
                           {chartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLOR_RANGE[index % COLOR_RANGE.length]} />
+                            <Cell key={`cell-${index}`} fill={VARIED_COLOR_RANGE[index % VARIED_COLOR_RANGE.length]} />
                           ))}
                         </Pie>
                         <Tooltip content={<CustomTooltip />} />
