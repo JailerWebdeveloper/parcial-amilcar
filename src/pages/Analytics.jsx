@@ -587,7 +587,7 @@ const LocationDashboard = () => {
                           label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                         >
                           {chartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={VARIED_COLOR_RANGE[index % VARIED_COLOR_RANGE.length]} />
+                            <Cell key={`cell-${index}`} fill={ALTERNATE_COLOR_RANGE[index % ALTERNATE_COLOR_RANGE.length]} />
                           ))}
                         </Pie>
                         <Tooltip content={<CustomTooltip />} />
