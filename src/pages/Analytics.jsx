@@ -110,7 +110,7 @@ const Tabs = ({ children, value, onValueChange }) => {
 
 const TabsList = ({ children, value, onValueChange }) => {
   return (
-    <div className="tabs-list">
+    <div className="tabs-list flex space-x-2 mb-6">
       {React.Children.map(children, child => {
         if (child.type === TabsTrigger) {
           return React.cloneElement(child, { 
@@ -303,6 +303,28 @@ const LocationDashboard = () => {
     });
   };
 
+  const handleMouseEnter = (evt, deptName, current) => {
+    const tooltipContent = `
+      <div>
+        <div class="font-semibold">${deptName}</div>
+        <div>Cases: ${formatNumber(current)}</div>
+      </div>
+    `;
+    
+    setTooltip({
+      show: true,
+      content: <div dangerouslySetInnerHTML={{ __html: tooltipContent }} />,
+      position: { x: evt.clientX, y: evt.clientY }
+    });
+  };
+
+  const handleMouseMove = (evt) => {
+    setTooltip(prev => ({
+      ...prev,
+      position: { x: evt.clientX, y: evt.clientY }
+    }));
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -335,6 +357,9 @@ const LocationDashboard = () => {
 
   // Data for the top 10
   const top10Data = [...chartData].slice(0, 10);
+  
+  // Data for list view
+  const departmentListData = convertToChartData(currentData);
 
   return (
     <div className="bg-gray-50 p-6 rounded-lg shadow">
@@ -348,7 +373,7 @@ const LocationDashboard = () => {
       {/* Navigation Tabs */}
       <div className="mb-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="flex space-x-2 mb-6">
+          <TabsList>
             <TabsTrigger value="departamentos">Departments</TabsTrigger>
             <TabsTrigger value="municipios">Municipalities</TabsTrigger>
             <TabsTrigger value="paises">Countries</TabsTrigger>
@@ -397,99 +422,98 @@ const LocationDashboard = () => {
                 <CardHeader>
                   <CardTitle>Cases by Department {selectedSemester && `- ${selectedSemester}`}</CardTitle>
                 </CardHeader>
-                <CardContent className="relative">
-                  {/* Tooltip personalizado */}
-                  <MapTooltip 
-                    show={tooltip.show} 
-                    content={tooltip.content} 
-                    position={tooltip.position} 
-                  />
-                  
-                  <div className="h-96">
-                    <ComposableMap
-                      projectionConfig={{ scale: 4000 }}
-                      projection="geoMercator"
-                      style={{ width: "100%", height: "100%" }}
-                      onMouseLeave={handleMouseLeave}
-                    >
-                      <ZoomableGroup center={[-74, 4]} zoom={1.5}>
-                        <Geographies geography={colombiaGeoUrl}>
-                          {({ geographies }) =>
-                            geographies.map((geo) => {
-                              // Normalize names to match data keys (uppercase)
-                              const deptName = geo.properties.name?.toUpperCase() || 
-                                              geo.properties.NOMBRE_DPT?.toUpperCase() || 
-                                              geo.properties.DPTO_CNMBR?.toUpperCase();
-                              const current = currentData[deptName] || 0;
-                              
-                              return (
-                                <Geography
-                                  key={geo.rsmKey}
-                                  geography={geo}
-                                  fill={colorScale(current)}
-                                  stroke="#FFFFFF"
-                                  strokeWidth={0.5}
-                                  style={{
-                                    default: { outline: "none" },
-                                    hover: { outline: "none", fill: "#F53", cursor: "pointer" },
-                                    pressed: { outline: "none" },
-                                  }}
-                                  onClick={() => {
-                                    setSelectedDepartamento(deptName);
-                                  }}
-                                  onMouseEnter={(evt) => {
-                                    const tooltipContent = `
-                                      <div>
-                                        <div class="font-semibold">${deptName}</div>
-                                        <div>Cases: ${formatNumber(current)}</div>
-                                      </div>
-                                    `;
-                                    setTooltip({
-                                      show: true,
-                                      content: <div dangerouslySetInnerHTML={{ __html: tooltipContent }} />,
-                                      position: { x: evt.clientX, y: evt.clientY }
-                                    });
-                                  }}
-                                  onMouseMove={(evt) => {
-                                    if (tooltip.show) {
-                                      setTooltip({
-                                        ...tooltip,
-                                        position: { x: evt.clientX, y: evt.clientY }
-                                      });
-                                    }
-                                  }}
-                                  onMouseLeave={() => {
-                                    setTooltip({
-                                      ...tooltip,
-                                      show: false
-                                    });
-                                  }}
-                                />
-                              );
-                            })
-                          }
-                        </Geographies>
-                      </ZoomableGroup>
-                    </ComposableMap>
-                  </div>
-                  
-                  {/* Leyenda de color */}
-                  <div className="flex justify-center items-center mt-4">
-                    <div className="flex items-center">
-                      <span className="text-xs text-gray-600 mr-2">Less</span>
-                      <div className="flex">
-                        {VARIED_COLOR_RANGE.map((color, i) => (
-                          <div
-                            key={i}
-                            style={{
-                              backgroundColor: color,
-                              width: "12px",
-                              height: "12px",
-                            }}
-                          />
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Map with tooltip */}
+                    <div className="md:col-span-2 relative">
+                      <MapTooltip 
+                        show={tooltip.show} 
+                        content={tooltip.content} 
+                        position={tooltip.position} 
+                      />
+                      
+                      <div className="h-96">
+                        <ComposableMap
+                          projectionConfig={{ scale: 4000 }}
+                          projection="geoMercator"
+                          style={{ width: "100%", height: "100%" }}
+                          onMouseLeave={handleMouseLeave}
+                        >
+                          <ZoomableGroup center={[-74, 4]} zoom={1.5}>
+                            <Geographies geography={colombiaGeoUrl}>
+                              {({ geographies }) =>
+                                geographies.map((geo) => {
+                                  // Normalize names to match data keys (uppercase)
+                                  const deptName = geo.properties.name?.toUpperCase() || 
+                                                  geo.properties.NOMBRE_DPT?.toUpperCase() || 
+                                                  geo.properties.DPTO_CNMBR?.toUpperCase();
+                                  const current = currentData[deptName] || 0;
+                                  
+                                  return (
+                                    <Geography
+                                      key={geo.rsmKey}
+                                      geography={geo}
+                                      fill={colorScale(current)}
+                                      stroke="#FFFFFF"
+                                      strokeWidth={0.5}
+                                      style={{
+                                        default: { outline: "none" },
+                                        hover: { outline: "none", fill: "#F53", cursor: "pointer" },
+                                        pressed: { outline: "none" },
+                                      }}
+                                      onClick={() => {
+                                        setSelectedDepartamento(deptName);
+                                      }}
+                                      onMouseEnter={(evt) => {
+                                        handleMouseEnter(evt, deptName, current);
+                                      }}
+                                      onMouseMove={handleMouseMove}
+                                      onMouseLeave={handleMouseLeave}
+                                    />
+                                  );
+                                })
+                              }
+                            </Geographies>
+                          </ZoomableGroup>
+                        </ComposableMap>
+                      </div>
+                      
+                      {/* Leyenda de color */}
+                      <div className="flex justify-center items-center mt-4">
+                        <div className="flex items-center">
+                          <span className="text-xs text-gray-600 mr-2">Less</span>
+                          <div className="flex">
+                            {VARIED_COLOR_RANGE.map((color, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  backgroundColor: color,
+                                  width: "12px",
+                                  height: "12px",
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs text-gray-600 ml-2">More</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Department List */}
+                    <div className="h-96 overflow-y-auto bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-800 mb-3">Department Data</h4>
+                      <div className="divide-y">
+                        {departmentListData.map((dept, index) => (
+                          <div 
+                            key={index} 
+                            className={`py-2 flex justify-between items-center cursor-pointer hover:bg-gray-100 ${selectedDepartamento === dept.name ? 'bg-blue-50' : ''}`}
+                            onClick={() => setSelectedDepartamento(dept.name)}
+                          >
+                            <span className={`${selectedDepartamento === dept.name ? 'font-medium' : ''}`}>{dept.name}</span>
+                            <span className="text-gray-700">{formatNumber(dept.value)}</span>
+                          </div>
                         ))}
                       </div>
-                      <span className="text-xs text-gray-600 ml-2">More</span>
                     </div>
                   </div>
                 </CardContent>
