@@ -432,7 +432,7 @@ const LocationDashboard = () => {
                         position={tooltip.position} 
                       />
                       
-                      <div className="h-96">
+                      <div className="h-11/12">
                         <ComposableMap
                           projectionConfig={{ scale: 4000 }}
                           projection="geoMercator"
